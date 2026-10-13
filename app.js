@@ -19,25 +19,25 @@
     brand:           'MOADUM',
     mainEyebrow:     'A LITTLE SPACE FOR EVERYTHING',
     mainTitle:       'MOADUM • 모아둠',
-    mainSubtitle:    '링크 바로가기',
-    mainFooter:      '가볍게 열고, 편하게 읽는 나만의 공간',
+    mainSubtitle:    '바로가기 모음집',
+    mainFooter:      '빠르게 열고, 가볍게 들리는 공간',
 
     // (2) 글 모음 타일 및 페이지
-    libraryTile:     '글 모음',
+    libraryTile:     '메모장 참고',
     libraryEyebrow:  'TODAY & ARCHIVE',
-    libraryTitle:    '글 모음',
-    librarySubtitle: '오늘 읽을 글을 보고, 전체 원문도 언제든 찾아보세요.',
-    todayTab:        '오늘의 글',
-    allTab:          '전체 글',
+    libraryTitle:    '메모장 참고',
+    librarySubtitle: '',
+    todayTab:        '오늘',
+    allTab:          '전체',
 
     // (3) 첫 번째~네 번째 글 모음: 고정 화면 라벨
-    firstLabel:      '첫 번째',
-    secondLabel:     '두 번째',
-    thirdLabel:      '세 번째',
-    fourthLabel:     '네 번째',
+    firstLabel:      '특성',
+    secondLabel:     '도 기도',
+    thirdLabel:      '오영 기도',
+    fourthLabel:     '일일공부',
 
     // (4) 관리자에게만 표시되는 간단한 버튼
-    extraButton:     '+1 추가',
+    extraButton:     '1 추가',
     pauseButton:     '하루 정지',
     undoButton:      '되돌리기'
   };
@@ -207,7 +207,7 @@
   // =============================================================
   function defaultState(){
     const mk=(prefix,i)=>({
-      title:`${i}번 글`,
+      title:`${i}번 말씀`,
       body:`[예시 글 ${i}]\n\n${prefix}의 ${i}번 원문을 관리자 화면에서 입력해 주세요.\n줄바꿈과 문단을 그대로 유지해서 보여줍니다.`
     });
     return {
@@ -222,10 +222,10 @@
         {name:'할 사람 찾기',url:'',icon:'users',image:''}
       ],
       groups:{
-        first:{title:'첫 번째 글 모음',articles:Array.from({length:4},(_,i)=>mk('5일 구간',i+1))},
-        eight:{title:'두 번째 글 모음',articles:Array.from({length:8},(_,i)=>mk('8일 순환',i+1))},
-        third:{title:'세 번째 글 모음',articles:Array.from({length:8},(_,i)=>mk('정지 가능한 8일 순환',i+1))},
-        fixed:{title:'네 번째 글 모음',articles:Array.from({length:13},(_,i)=>mk('고정 및 매일 순환',i+1))}
+        first:{title:'특성',articles:Array.from({length:4},(_,i)=>mk('5일 구간',i+1))},
+        eight:{title:'도둠터 기도',articles:Array.from({length:8},(_,i)=>mk('8일 순환',i+1))},
+        third:{title:'오영학교 기도',articles:Array.from({length:8},(_,i)=>mk('정지 가능한 8일 순환',i+1))},
+        fixed:{title:'일일공부',articles:Array.from({length:13},(_,i)=>mk('고정 및 매일 순환',i+1))}
       },
       rules:{
         firstMode:'restart',firstAnchor:'2026-10-01',
@@ -256,7 +256,7 @@
       if(!g || typeof g!=='object')continue;
       let title=String(g.title??def.groups[key].title).slice(0,90);
       // 3모음 → 4모음 업그레이드 시 옛 기본 제목만 바꿉니다.
-      if(key==='fixed' && title==='세 번째 글 모음')title='네 번째 글 모음';
+      if(key==='fixed' && title==='오영학교 기도')title='일일공부';
       def.groups[key].title=title;
       const target=def.groups[key].articles;
       for(let i=0;i<target.length;i++)if(g.articles?.[i]){
@@ -291,10 +291,10 @@
   // [5. 날짜 계산] 버튼은 1번만 적용되고 이후 순환에 누적 반영됨
   // =============================================================
   function groupLabel(k){
-    const base={first:'첫 번째',eight:'두 번째',third:'세 번째',fixed:'네 번째'};
+    const base={first:'특성',eight:'도 기도',third:'오영 기도',fixed:'일일공부'};
     const labels={first:TEXT.firstLabel,eight:TEXT.secondLabel,third:TEXT.thirdLabel,fixed:TEXT.fourthLabel};
     const custom=state.groups[k].title;
-    return custom===base[k]+' 글 모음' ? labels[k]+' 글 모음' : custom;
+    return custom===base[k]+'' ? labels[k]+'' : custom;
   }
   function baseNumberFirst(date){
     const d=parseDate(date),slot=Math.min(5,Math.floor((d.getUTCDate()-1)/5));
@@ -428,10 +428,10 @@
   function ruleAdmin(){
     const r=state.rules;
     return `<div class="admin-panel"><h2 class="panel-title">글이 바뀌는 기준</h2><p class="panel-sub">기준일과 모음 이름을 수정할 수 있어요. +1 추가와 하루 정지는 오늘의 글에서 바로 누르면 됩니다.</p>
-      <section class="rule-card"><h3>${e(TEXT.firstLabel)} 글 모음 · 4개</h3><p>매월 1~5일, 6~10일, 11~15일, 16~20일, 21~25일, 26~말일. 31일은 마지막 글을 유지합니다.</p><div class="field"><label for="first-group-name">모음 이름</label>${input('first-group-name',groupLabel('first'))}</div><div class="field"><label for="first-mode">다음 달로 넘어갈 때</label><select id="first-mode" class="select"><option value="restart" ${r.firstMode==='restart'?'selected':''}>매달 1번 글부터 다시 시작</option><option value="continuous" ${r.firstMode==='continuous'?'selected':''}>다음 달에도 4개 글의 순서 이어가기</option></select></div><div class="field"><label for="first-anchor">이어가기 방식의 기준일</label>${input('first-anchor',r.firstAnchor,'date')}</div></section>
-      <section class="rule-card"><h3>${e(TEXT.secondLabel)} 글 모음 · 8개</h3><p>하루에 하나씩 순환합니다. +1 추가를 누른 날은 두 개를 보여주고 이후 순환이 한 칸 빨라집니다.</p><div class="field"><label for="eight-group-name">모음 이름</label>${input('eight-group-name',groupLabel('eight'))}</div><div class="field"><label for="eight-anchor">1번 글을 표시할 기준일</label>${input('eight-anchor',r.eightAnchor,'date')}</div></section>
-      <section class="rule-card"><h3>${e(TEXT.thirdLabel)} 글 모음 · 8개</h3><p>하루에 하나씩 순환합니다. 하루 정지를 누른 날의 글은 오늘과 다음 날 똑같이 보여요.</p><div class="field"><label for="third-group-name">모음 이름</label>${input('third-group-name',groupLabel('third'))}</div><div class="field"><label for="third-anchor">1번 글을 표시할 기준일</label>${input('third-anchor',r.thirdAnchor,'date')}</div></section>
-      <section class="rule-card"><h3>${e(TEXT.fourthLabel)} 글 모음 · 13개</h3><p>1번 글은 항상 표시하고 2~13번 글은 하루에 하나씩 돌아갑니다.</p><div class="field"><label for="fixed-group-name">모음 이름</label>${input('fixed-group-name',groupLabel('fixed'))}</div><div class="field"><label for="fixed-anchor">2번 글을 표시할 기준일</label>${input('fixed-anchor',r.fixedAnchor,'date')}</div></section>
+      <section class="rule-card"><h3>${e(TEXT.firstLabel)} · 4말씀</h3><p>매월 1~5일, 6~10일, 11~15일, 16~20일, 21~25일, 26~말일. 31일은 마지막 글을 유지합니다.</p><div class="field"><label for="first-group-name">모음 이름</label>${input('first-group-name',groupLabel('first'))}</div><div class="field"><label for="first-mode">다음 달로 넘어갈 때</label><select id="first-mode" class="select"><option value="restart" ${r.firstMode==='restart'?'selected':''}>매달 1번 글부터 다시 시작</option><option value="continuous" ${r.firstMode==='continuous'?'selected':''}>다음 달에도 4개 글의 순서 이어가기</option></select></div><div class="field"><label for="first-anchor">이어가기 방식의 기준일</label>${input('first-anchor',r.firstAnchor,'date')}</div></section>
+      <section class="rule-card"><h3>${e(TEXT.secondLabel)} · 8말씀</h3><p>하루에 하나씩 순환. +1 추가를 누른 날은 두 말씀을 보여주고 이후 순환이 한 칸 빨라집니다.</p><div class="field"><label for="eight-group-name">모음 이름</label>${input('eight-group-name',groupLabel('eight'))}</div><div class="field"><label for="eight-anchor">1번 글을 표시할 기준일</label>${input('eight-anchor',r.eightAnchor,'date')}</div></section>
+      <section class="rule-card"><h3>${e(TEXT.thirdLabel)} · 8말씀</h3><p>하루에 하나씩 순환. 하루 정지를 누른 날은 오늘과 다음 날 똑같이 보여요.</p><div class="field"><label for="third-group-name">모음 이름</label>${input('third-group-name',groupLabel('third'))}</div><div class="field"><label for="third-anchor">1번 글을 표시할 기준일</label>${input('third-anchor',r.thirdAnchor,'date')}</div></section>
+      <section class="rule-card"><h3>${e(TEXT.fourthLabel)} · 13말씀</h3><p>1번 말씀은 항상 표시하고 2~13번 말씀은 하루에 하나씩 돌아갑니다.</p><div class="field"><label for="fixed-group-name">모음 이름</label>${input('fixed-group-name',groupLabel('fixed'))}</div><div class="field"><label for="fixed-anchor">2번 글을 표시할 기준일</label>${input('fixed-anchor',r.fixedAnchor,'date')}</div></section>
       <div class="savebar"><button class="primary-btn" data-action="save-rules">${svg('check','sm')} 규칙 저장</button></div></div>`;
   }
   function loginPage(){
