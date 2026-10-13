@@ -333,8 +333,8 @@
   function rangeLabel(date){const d=parseDate(date),start=Math.min(5,Math.floor((d.getUTCDate()-1)/5))*5+1;const end=start===26?monthDays(d.getUTCFullYear(),d.getUTCMonth()+1):start+4;return `${d.getUTCMonth()+1}월 ${start}~${end}일`}
   function sectionNote(group,date){
     if(group==='first')return `${rangeLabel(date)} · 5일 단위`;
-    if(group==='eight')return '8개 글 · 매일 순환';
-    if(group==='third')return '8개 글 · 매일 순환';
+    if(group==='eight')return '8말씀 · 매일 순환';
+    if(group==='third')return '8말씀 · 매일 순환';
     return '1번 고정 + 2~13번 매일 순환';
   }
   function iconButton(key,action,label,extra=''){return `<button type="button" class="icon-btn" data-action="${action}" aria-label="${e(label)}" title="${e(label)}" ${extra}>${svg(key)}</button>`;}
@@ -422,7 +422,7 @@
     const counts={first:4,eight:8,third:8,fixed:13};
     const labels={first:TEXT.firstLabel,eight:TEXT.secondLabel,third:TEXT.thirdLabel,fixed:TEXT.fourthLabel};
     const pills=grp.articles.map((a,i)=>`<button class="${editNumber===i+1?'active':''}" data-action="edit-number" data-value="${i+1}" aria-label="${i+1}번 글">${i+1}</button>`).join('');
-    const switches=GROUP_ORDER.map(k=>`<button data-action="edit-group" data-value="${k}" class="${editGroup===k?'active':''}">${e(labels[k])} · ${counts[k]}개</button>`).join('');
+    const switches=GROUP_ORDER.map(k=>`<button data-action="edit-group" data-value="${k}" class="${editGroup===k?'active':''}">${e(labels[k])} · ${counts[k]}말씀</button>`).join('');
     return `<div class="admin-panel"><h2 class="panel-title">글 내용 편집</h2><p class="panel-sub">모음과 글 번호를 선택한 뒤 제목과 원문을 수정할 수 있어요.</p><div class="group-switch">${switches}</div><div class="number-pills">${pills}</div><div class="field"><label for="article-title">${editNumber}번 글 제목</label>${input('article-title',obj.title)}</div><div class="field"><label for="article-body">글 내용</label><textarea class="textarea" id="article-body" spellcheck="false" placeholder="여기에 원문을 붙여 넣으세요.">${e(obj.body)}</textarea></div><div class="savebar"><button class="primary-btn" data-action="save-article">${svg('check','sm')} 글 저장</button></div></div>`;
   }
   function ruleAdmin(){
