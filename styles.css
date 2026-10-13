@@ -44,3 +44,12 @@ button{border:0;background:none;color:inherit}.app{max-width:920px;margin:0 auto
 .feature-icon-admin{display:flex;gap:10px;align-items:center;margin:15px 0 12px;padding:11px 13px;background:#f6f9f6;border:1px solid #e1e9e1;border-radius:13px}
 .feature-icon-admin strong{display:block;color:#445648;font-size:13px;margin-bottom:3px}
 .feature-icon-admin span{font-size:11px;color:#8a968c}
+
+/* 글 모음: 작은 순환 조정 버튼만 카드 제목 옆에 표시 */
+.card-tools{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.mini-toggle{display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  border:1px solid #d9e4db;border-radius:8px;padding:6px 9px;
+  background:#fff;color:#52735b;font-size:11px;font-weight:700;white-space:nowrap}
+.mini-toggle:hover{background:#f0f6f0}
+.mini-toggle.active{background:#eaf2ea;border-color:#b9cdbc}
+@media(max-width:620px){.card-tools{gap:5px}.mini-toggle{padding:5px 7px}}
