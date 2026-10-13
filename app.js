@@ -358,7 +358,7 @@
   function articleHTML(item,group){
     // 제목 대신 작은 순번만 표시합니다. 기존 제목 데이터는 호환용으로 보존합니다.
     const pin=(group==='fixed'&&item.n===1);
-    return `<div class="article-item"><div class="article-meta"><span class="article-number">${item.n}번</span>${pin?`<span class="badge-soft">${svg('pin','xs')} 항상 표시</span>`:''}</div><div class="body-text">${e(item.body)}</div><div class="copy-row"><button type="button" class="copy-btn" data-action="copy-article" data-group="${group}" data-num="${item.n}">${svg('copy','xs')} 글 복사</button></div></div>`;
+    return `<div class="article-item"><div class="body-text">${e(item.body)}</div><div class="copy-row"><button type="button" class="copy-btn" data-action="copy-article" data-group="${group}" data-num="${item.n}">${svg('copy','xs')} 글 복사</button></div></div>`;
   }
   // =============================================================
   // [6. 화면 구성 (HTML)] 아래에서 페이지/카드의 배치를 생성합니다.
