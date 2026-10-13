@@ -18,7 +18,7 @@
     // (1) 웹앱 첫 화면
     brand:           'MOADUM',
     mainEyebrow:     'A LITTLE SPACE FOR EVERYTHING',
-    mainTitle:       'MOADUM • 모아둠',
+    mainTitle:       '모아둠',
     mainSubtitle:    '바로가기 모음집',
     mainFooter:      '빠르게 열고, 가볍게 들리는 공간',
 
@@ -37,7 +37,7 @@
     fourthLabel:     '일일공부',
 
     // (4) 관리자에게만 표시되는 간단한 버튼
-    extraButton:     '1 추가',
+    extraButton:     '1',
     pauseButton:     '하루 정지',
     undoButton:      '되돌리기'
   };
@@ -54,6 +54,8 @@
   let state;
   let busy = false;
   let remoteStatus = remote ? '연결 중' : '이 브라우저만 저장';
+  // Supabase를 쓰는 동안은 실제 서버 데이터를 받기 전까지 기본 화면을 보여주지 않습니다.
+  let initialLoad = remote ? 'loading' : 'ready';
   let selectedDate = koreanToday();
   let activeReadTab = 'today';
   let allFilter = 'all';
@@ -333,8 +335,8 @@
   function rangeLabel(date){const d=parseDate(date),start=Math.min(5,Math.floor((d.getUTCDate()-1)/5))*5+1;const end=start===26?monthDays(d.getUTCFullYear(),d.getUTCMonth()+1):start+4;return `${d.getUTCMonth()+1}월 ${start}~${end}일`}
   function sectionNote(group,date){
     if(group==='first')return `${rangeLabel(date)} · 5일 단위`;
-    if(group==='eight')return '8말씀 · 매일 순환';
-    if(group==='third')return '8말씀 · 매일 순환';
+    if(group==='eight')return '8 말씀 · 매일 순환';
+    if(group==='third')return '8 말씀 · 매일 순환';
     return '1번 고정 + 2~13번 매일 순환';
   }
   function iconButton(key,action,label,extra=''){return `<button type="button" class="icon-btn" data-action="${action}" aria-label="${e(label)}" title="${e(label)}" ${extra}>${svg(key)}</button>`;}
@@ -352,10 +354,11 @@
     }).join('');
     return shell(`<section class="hero"><div class="eyebrow">${e(TEXT.mainEyebrow)}</div><h1>${e(TEXT.mainTitle)}</h1><p class="subtitle">${e(TEXT.mainSubtitle)}</p></section><div class="tiles">${tiles}<button class="tile tile-feature" type="button" data-action="read"><span class="tile-head">${tileIcon({icon:state.featureIcon,image:state.featureImage},'lg')}${svg('right','sm')}</span><span class="tile-title">${e(TEXT.libraryTile)}</span></button></div><div class="footer">${e(TEXT.mainFooter)}</div>`);
   }
-  // 6-B. 글 본문 / 카드 / 전체 목록
-  function articleHTML(item,group,showPinned=false){
+  // 6-B. 글 본문 / 카드 / 전체 목록 (글별 제목 없이 본문만 사용)
+  function articleHTML(item,group){
+    // 제목 대신 작은 순번만 표시합니다. 기존 제목 데이터는 호환용으로 보존합니다.
     const pin=(group==='fixed'&&item.n===1);
-    return `<div class="article-item"><div class="article-title"><h3>${e(item.title)}</h3>${pin?`<span class="badge-soft">${svg('pin','xs')} 항상 표시</span>`:''}</div><div class="body-text">${e(item.body)}</div><div class="copy-row"><button type="button" class="copy-btn" data-action="copy-article" data-group="${group}" data-num="${item.n}">${svg('copy','xs')} 글 복사</button></div></div>`;
+    return `<div class="article-item"><div class="article-meta"><span class="article-number">${item.n}번</span>${pin?`<span class="badge-soft">${svg('pin','xs')} 항상 표시</span>`:''}</div><div class="body-text">${e(item.body)}</div><div class="copy-row"><button type="button" class="copy-btn" data-action="copy-article" data-group="${group}" data-num="${item.n}">${svg('copy','xs')} 글 복사</button></div></div>`;
   }
   // =============================================================
   // [6. 화면 구성 (HTML)] 아래에서 페이지/카드의 배치를 생성합니다.
@@ -388,9 +391,9 @@
       .map(([key,label])=>`<button class="chip ${allFilter===key?'active':''}" data-action="filter" data-value="${key}">${e(label)}</button>`).join('');
     const groups=GROUP_ORDER.filter(k=>allFilter==='all'||allFilter===k).map(k=>{
       const articles=state.groups[k].articles;
-      const items=articles.map((a,i)=>`<div class="all-article"><h3>${e(a.title)}${k==='fixed'&&i===0?'<span class="anchor-badge">항상 표시</span>':''}</h3><div class="body-text">${e(a.body)}</div><div class="copy-row"><button class="copy-btn" data-action="copy-article" data-group="${k}" data-num="${i+1}">${svg('copy','xs')} 복사</button></div></div>`).join('');
-      const desc=k==='first'?'매월 1·6·11·16·21·26일 전환':k==='fixed'?'1번 고정 · 2~13번 순환':'8개 글이 매일 순환';
-      return `<section class="all-group"><div class="all-heading"><h2>${e(groupLabel(k))}</h2><span class="muted">${articles.length}개</span></div><div class="all-desc">${e(desc)}</div><div class="all-items">${items}</div></section>`;
+      const items=articles.map((a,i)=>`<div class="all-article"><div class="article-meta"><span class="article-number">${i+1}번</span>${k==='fixed'&&i===0?'<span class="anchor-badge">항상 표시</span>':''}</div><div class="body-text">${e(a.body)}</div><div class="copy-row"><button class="copy-btn" data-action="copy-article" data-group="${k}" data-num="${i+1}">${svg('copy','xs')} 복사</button></div></div>`).join('');
+      const desc=k==='first'?'매월 1·6·11·16·21·26일 전환':k==='fixed'?'1 고정 · 2~13 순환':'8말씀이 매일 순환';
+      return `<section class="all-group"><div class="all-heading"><h2>${e(groupLabel(k))}</h2><span class="muted">${articles.length}말씀</span></div><div class="all-desc">${e(desc)}</div><div class="all-items">${items}</div></section>`;
     }).join('');
     return `<div class="all-top"><span class="muted">등록된 글 33개 · 원문 전체 보기</span><button class="light-btn" data-action="copy-all">${svg('copy','xs')} 전체 복사</button></div><div class="chip-row">${btns}</div>${groups}`;
   }
@@ -422,8 +425,8 @@
     const counts={first:4,eight:8,third:8,fixed:13};
     const labels={first:TEXT.firstLabel,eight:TEXT.secondLabel,third:TEXT.thirdLabel,fixed:TEXT.fourthLabel};
     const pills=grp.articles.map((a,i)=>`<button class="${editNumber===i+1?'active':''}" data-action="edit-number" data-value="${i+1}" aria-label="${i+1}번 글">${i+1}</button>`).join('');
-    const switches=GROUP_ORDER.map(k=>`<button data-action="edit-group" data-value="${k}" class="${editGroup===k?'active':''}">${e(labels[k])} · ${counts[k]}말씀</button>`).join('');
-    return `<div class="admin-panel"><h2 class="panel-title">글 내용 편집</h2><p class="panel-sub">모음과 글 번호를 선택한 뒤 제목과 원문을 수정할 수 있어요.</p><div class="group-switch">${switches}</div><div class="number-pills">${pills}</div><div class="field"><label for="article-title">${editNumber}번 글 제목</label>${input('article-title',obj.title)}</div><div class="field"><label for="article-body">글 내용</label><textarea class="textarea" id="article-body" spellcheck="false" placeholder="여기에 원문을 붙여 넣으세요.">${e(obj.body)}</textarea></div><div class="savebar"><button class="primary-btn" data-action="save-article">${svg('check','sm')} 글 저장</button></div></div>`;
+    const switches=GROUP_ORDER.map(k=>`<button data-action="edit-group" data-value="${k}" class="${editGroup===k?'active':''}">${e(labels[k])} · ${counts[k]} 말씀</button>`).join('');
+    return `<div class="admin-panel"><h2 class="panel-title">내용 편집</h2><p class="panel-sub">모음과 글 번호를 선택한 뒤 원문만 수정할 수 있어요.</p><div class="group-switch">${switches}</div><div class="number-pills">${pills}</div><div class="field"><label for="article-body">${editNumber}번 글 내용</label><textarea class="textarea" id="article-body" spellcheck="false" placeholder="여기에 원문을 붙여 넣으세요.">${e(obj.body)}</textarea></div><div class="savebar"><button class="primary-btn" data-action="save-article">${svg('check','sm')} 글 저장</button></div></div>`;
   }
   function ruleAdmin(){
     const r=state.rules;
@@ -443,16 +446,32 @@
     return shell(`<button class="back" data-action="home">${svg('left','sm')} 처음으로</button><div class="admin-header"><h1>관리자 모드</h1><p class="hint">필요한 내용만 바꾸고 저장하면 됩니다.</p></div>${!remote?`<div class="notice"><strong>이 브라우저에서만 저장되는 시험용 모드</strong><br>${storageAvailable?'현재 편집 기능은 별도 로그인 없이 작동합니다. 공개 운영 전에 Supabase를 연결하면 로그인 관리자만 수정하고, 방문자는 읽기만 할 수 있습니다.':'지금은 브라우저가 저장을 차단했습니다. 파일을 로컬 웹서버로 실행하거나 Supabase를 연결해 주세요.'}</div>`:''}${adminNav()}${content}<div class="bottom-gap"></div>`);
   }
   function route(){const path=location.hash.replace(/^#\/?/,'').split('?')[0];return path==='read'?'read':path==='admin'?'admin':'home';}
-  function render(){ROOT.innerHTML=route()==='read'?readPage():route()==='admin'?adminPage():home();document.title=(route()==='read'?TEXT.libraryTitle:route()==='admin'?'관리자':TEXT.mainTitle)+' · '+TEXT.brand;}
+  // 서버 응답을 기다리는 동안 임시/예시 타일을 먼저 렌더링하지 않습니다.
+  function render(){
+    if(remote && initialLoad!=='ready'){
+      ROOT.innerHTML=initialLoad==='error'
+        ? `<main class="app"><section class="startup-screen" role="alert"><div class="startup-brand">${e(TEXT.brand)}</div><p class="startup-detail">저장된 내용을 불러오지 못했어요.<br>연결 상태를 확인한 뒤 다시 시도해 주세요.</p><button type="button" class="startup-retry" data-action="retry-load">다시 시도</button></section></main>`
+        : `<main class="app"><section class="startup-screen is-loading" role="status"><div class="startup-brand">${e(TEXT.brand)}</div><span class="startup-spinner" aria-hidden="true"></span><p class="startup-detail">자료를 불러오는 중…</p></section></main>`;
+      document.title=TEXT.mainTitle+' · '+TEXT.brand;
+      return;
+    }
+    ROOT.innerHTML=route()==='read'?readPage():route()==='admin'?adminPage():home();
+    document.title=(route()==='read'?TEXT.libraryTitle:route()==='admin'?'관리자':TEXT.mainTitle)+' · '+TEXT.brand;
+  }
   function nav(page){location.hash=page===''?'#/':'#/'+page;render();window.scrollTo({top:0,behavior:'instant'});}
   function toast(s){const node=document.getElementById('toast');node.textContent=s;node.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove('show'),3200);}
   function validUrl(u){try{const z=new URL(u);return ['https:','http:'].includes(z.protocol)?z.href:null;}catch(_){return null;}}
   function copyText(t){if(navigator.clipboard && window.isSecureContext){return navigator.clipboard.writeText(t).then(()=>toast('복사했어요.')).catch(()=>fallbackCopy(t));}return Promise.resolve(fallbackCopy(t));}
   function fallbackCopy(t){let el=document.createElement('textarea');el.value=t;el.style.cssText='position:fixed;left:-9999px;top:0';document.body.appendChild(el);el.select();try{document.execCommand('copy');toast('복사했어요.');}catch(_){toast('복사할 수 없습니다. 브라우저 권한을 확인해 주세요.');}el.remove();}
-  function getCopyArticle(k,n){const x=state.groups[k]?.articles[n-1];return x?`${x.title}\n\n${x.body}`:'';}
+  function getCopyArticle(k,n){const x=state.groups[k]?.articles[n-1];return x?x.body:'';}
   function getAllText(groups){return groups.map(k=>`${state.groups[k].title}\n\n${state.groups[k].articles.map((a,i)=>getCopyArticle(k,i+1)).join('\n\n──────────\n\n')}`).join('\n\n════════════════\n\n');}
   function captureLinks(){state.links=[...ROOT.querySelectorAll('[data-link-row]')].map((r,i)=>({name:r.querySelector('[data-kind="name"]').value.trim()||'이름 없는 링크',url:r.querySelector('[data-kind="url"]').value.trim(),icon:state.links[i]?.icon||'folder',image:state.links[i]?.image||''}));}
-  function captureArticle(){const title=ROOT.querySelector('#article-title'),body=ROOT.querySelector('#article-body');if(!title||!body)return;state.groups[editGroup].articles[editNumber-1]={title:title.value.trim()||`${editNumber}번 글`,body:body.value};}
+  function captureArticle(){
+    const body=ROOT.querySelector('#article-body');
+    if(!body)return;
+    // 과거 제목 속성은 덮어쓰거나 삭제하지 않고, 사용자가 작성한 본문만 수정합니다.
+    state.groups[editGroup].articles[editNumber-1].body=body.value;
+  }
   function captureRules(){
     const v=id=>ROOT.querySelector('#'+id)?.value;
     if(!v('first-mode'))return;
@@ -465,7 +484,7 @@
     };
     const fields={first:'first-group-name',eight:'eight-group-name',third:'third-group-name',fixed:'fixed-group-name'};
     const defaults={first:TEXT.firstLabel,eight:TEXT.secondLabel,third:TEXT.thirdLabel,fixed:TEXT.fourthLabel};
-    for(const k of GROUP_ORDER)state.groups[k].title=v(fields[k]).trim()||defaults[k]+' 글 모음';
+    for(const k of GROUP_ORDER)state.groups[k].title=v(fields[k]).trim()||defaults[k]+'';
   }
   function captureAdmin(){if(route()!=='admin')return;try{if(adminTab==='links')captureLinks();if(adminTab==='articles')captureArticle();if(adminTab==='rules')captureRules();}catch(_){}}
 
@@ -485,8 +504,22 @@
     const text=await rsp.text();return text?JSON.parse(text):null;
   }
   async function loadRemote(){
-    try{const result=await api('/rest/v1/app_state?select=content&id=eq.main');if(Array.isArray(result)&&result[0]?.content){state=normalise(result[0].content);remoteStatus='서버 연결됨';render();}else{remoteStatus='초기 데이터 없음';toast('Supabase의 초기 데이터를 확인해 주세요.');}}
-    catch(err){remoteStatus='연결 오류';toast('서버에서 데이터를 불러오지 못했어요. 연결 설정을 확인해 주세요.');console.warn(err);}
+    try{
+      const result=await api('/rest/v1/app_state?select=content&id=eq.main');
+      if(Array.isArray(result)&&result[0]?.content){
+        state=normalise(result[0].content);
+        remoteStatus='서버 연결됨';
+        initialLoad='ready';
+      }else{
+        remoteStatus='초기 데이터 없음';
+        initialLoad='error';
+      }
+    }catch(err){
+      remoteStatus='연결 오류';
+      initialLoad='error';
+      console.warn('Supabase 초기 데이터 불러오기 실패:',err);
+    }
+    render();
   }
   async function persist(){
     if(!remote){
@@ -522,6 +555,11 @@
   async function handleAction(el){
     const a=el.dataset.action,v=el.dataset.value,idx=Number(el.dataset.idx),g=el.dataset.group,n=Number(el.dataset.num);
     try{
+      if(a==='retry-load'){
+        if(!remote)return;
+        initialLoad='loading';render();
+        await loadRemote();return;
+      }
       if(a==='home')return nav('');if(a==='read')return nav('read');if(a==='admin')return nav('admin');
       if(a==='missing-link')return toast('아직 주소가 등록되지 않았어요. 관리자에서 링크를 입력해 주세요.');
       if(a==='read-tab'){activeReadTab=v;render();return;}
@@ -530,7 +568,7 @@
       if(a==='day-reset'){selectedDate=koreanToday();render();return;}
       if(a==='filter'){allFilter=v;render();return;}
       if(a==='copy-article')return copyText(getCopyArticle(g,n));
-      if(a==='copy-today')return copyText(GROUP_ORDER.map(k=>`${groupLabel(k)}\n\n${todayArticles(k,selectedDate).map(x=>`${x.title}\n\n${x.body}`).join('\n\n')}`).join('\n\n──────────────\n\n'));
+      if(a==='copy-today')return copyText(GROUP_ORDER.map(k=>`${groupLabel(k)}\n\n${todayArticles(k,selectedDate).map(x=>x.body).join('\n\n')}`).join('\n\n──────────────\n\n'));
       if(a==='copy-all')return copyText(getAllText(GROUP_ORDER.filter(k=>allFilter==='all'||allFilter===k)));
       if(a==='admin-tab'){captureAdmin();adminTab=v;render();return;}
       if(a==='icon-open'){captureLinks();iconEditing=iconEditing===idx?-1:idx;render();return;}
@@ -602,10 +640,15 @@
   ROOT.addEventListener('submit',ev=>{if(ev.target.id==='login-form'){ev.preventDefault();void login();}});
   window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
   async function boot(){
-    state=loadLocal();
-    if(remote){try{session=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');}catch(_){} }
-    render();
-    if(remote)await loadRemote();
+    // Supabase 연결 시에는 로컬 기본/예시 데이터를 먼저 표시하지 않습니다.
+    state=remote?defaultState():loadLocal();
+    if(remote){
+      try{session=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');}catch(_){}
+      render(); // 로딩 화면만 표시
+      await loadRemote(); // 서버 데이터 수신 후에 실제 앱 화면을 한 번만 표시
+    }else{
+      render(); // 서버 연결 없는 로컬 체험판은 기존처럼 즉시 표시
+    }
   }
   boot();
   // 개발 확인용: 날짜별로 표시할 글 번호 확인
