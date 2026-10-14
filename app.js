@@ -326,9 +326,17 @@
       // 다음 날부터 누적 진행 횟수를 1회 차감합니다.
       const current=mod(dayDiff(date,state.rules.thirdAnchor)-changesBefore('third',date),8)+1;
       numbers=[current];
-    }else if(group==='fixed'){
-      numbers=[1,mod(dayDiff(date,state.rules.fixedAnchor),12)+2];
-    }
+   }else if(group==='fixed'){
+     // 2번 글을 표시하는 기준일부터 16일 순환
+     const step = mod(dayDiff(date,state.rules.fixedAnchor),16);
+   
+     // 2,3,4,1,5,6,7,1,8,9,10,1,11,12,13,1
+     numbers = [
+       step % 4 === 3
+         ? 1
+         : 2 + Math.floor(step / 4) * 3 + (step % 4)
+     ];
+   }
     const count=state.groups[group].articles.length;
     return numbers.filter(n=>Number.isInteger(n)&&n>=1&&n<=count).map(n=>({n,...state.groups[group].articles[n-1]}));
   }
@@ -337,7 +345,7 @@
     if(group==='first')return `${rangeLabel(date)} · 5일 단위`;
     if(group==='eight')return '8 말씀 · 매일 순환';
     if(group==='third')return '8 말씀 · 매일 순환';
-    return '1번 고정 + 2~13번 매일 순환';
+    return '16일 순환 · 1번 반복';
   }
   function iconButton(key,action,label,extra=''){return `<button type="button" class="icon-btn" data-action="${action}" aria-label="${e(label)}" title="${e(label)}" ${extra}>${svg(key)}</button>`;}
   function logo(){return `<a class="identity" href="#/" aria-label="처음으로"><span class="mark">${svg('spark','sm')}</span><span>${e(TEXT.brand)}</span></a>`;}
@@ -379,7 +387,7 @@
     const nav=`<div class="date-row"><div class="date-nav"><button type="button" data-action="day-prev" aria-label="전날">${svg('chevl','sm')}</button><strong>${e(fmtDate(date))}</strong><button type="button" data-action="day-next" aria-label="다음날">${svg('chevr','sm')}</button></div><button type="button" class="text-link" data-action="day-reset">오늘로 돌아가기</button></div>`;
     const cards=GROUP_ORDER.map(group=>{
       const arts=todayArticles(group,date);
-      const pill=group==='fixed'?'고정 + 순환':group==='first'?'5일 단위':'매일 변경';
+      const pill=group==='fixed'?'16일 순':group==='first'?'5일 단위':'매일 변경';
       return `<section class="article-card"><div class="card-head"><div><h2>${e(groupLabel(group))}</h2><div class="muted">${e(sectionNote(group,date))}</div></div><div class="card-tools"><span class="pill">${pill}</span>${adjustmentButton(group,date)}</div></div>${arts.map(a=>articleHTML(a,group)).join('')||'<div class="empty">이 날짜에 표시할 글이 없습니다.</div>'}</section>`;
     }).join('');
     return nav+`<div class="section-stack">${cards}</div><div class="copy-row" style="margin-top:18px"><button class="light-btn" data-action="copy-today">${svg('copy','sm')} 오늘의 글 전체 복사</button></div>`;
@@ -391,7 +399,7 @@
       .map(([key,label])=>`<button class="chip ${allFilter===key?'active':''}" data-action="filter" data-value="${key}">${e(label)}</button>`).join('');
     const groups=GROUP_ORDER.filter(k=>allFilter==='all'||allFilter===k).map(k=>{
       const articles=state.groups[k].articles;
-      const items=articles.map((a,i)=>`<div class="all-article"><div class="article-meta"><span class="article-number">${i+1}번</span>${k==='fixed'&&i===0?'<span class="anchor-badge">항상 표시</span>':''}</div><div class="body-text">${e(a.body)}</div><div class="copy-row"><button class="copy-btn" data-action="copy-article" data-group="${k}" data-num="${i+1}">${svg('copy','xs')} 복사</button></div></div>`).join('');
+      const items=articles.map((a,i)=>`<div class="all-article"><div class="article-meta"><span class="article-number">${i+1}번</span>${k==='fixed'&&i===0?'<span class="anchor-badge">반복 등</span>':''}</div><div class="body-text">${e(a.body)}</div><div class="copy-row"><button class="copy-btn" data-action="copy-article" data-group="${k}" data-num="${i+1}">${svg('copy','xs')} 복사</button></div></div>`).join('');
       const desc=k==='first'?'매월 1·6·11·16·21·26일 전환':k==='fixed'?'1 고정 · 2~13 순환':'8말씀이 매일 순환';
       return `<section class="all-group"><div class="all-heading"><h2>${e(groupLabel(k))}</h2><span class="muted">${articles.length}말씀</span></div><div class="all-desc">${e(desc)}</div><div class="all-items">${items}</div></section>`;
     }).join('');
