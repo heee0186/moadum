@@ -233,7 +233,7 @@
         firstMode:'restart',firstAnchor:'2026-10-01',
         eightAnchor:'2026-10-13',thirdAnchor:'2026-10-13',fixedAnchor:'2026-10-13'
       },
-      adjustments:{extraDays:[],pauseDays:[]},
+      adjustments:{extraDays:[],pauseDays:[],fixedPauseDays:[]},
       unusedOldArticle14:null
     };
   }
@@ -282,7 +282,7 @@
     if(!validDate(r.thirdAnchor||'') && validDate(r.eightAnchor||''))def.rules.thirdAnchor=r.eightAnchor;
 
     const inputAdj=incoming.adjustments||{};
-    for(const k of ['extraDays','pauseDays']){
+    for(const k of ['extraDays','pauseDays','fixedPauseDays']){
       if(Array.isArray(inputAdj[k]))def.adjustments[k]=[...new Set(inputAdj[k].filter(validDate))].slice(0,3000).sort();
     }
     return def;
@@ -311,8 +311,13 @@
     return entries.filter(d=>d<date).length;
   }
   function adjustedOn(kind,date){
-    return (kind==='eight'?state.adjustments.extraDays:state.adjustments.pauseDays).includes(date);
-  }
+  const field =
+    kind === 'eight' ? 'extraDays' :
+    kind === 'third' ? 'pauseDays' :
+    'fixedPauseDays';
+
+  return (state.adjustments[field] || []).includes(date);
+}
   function todayArticles(group,date){
     let numbers=[];
     if(group==='first')numbers=[baseNumberFirst(date)];
@@ -326,17 +331,56 @@
       // 다음 날부터 누적 진행 횟수를 1회 차감합니다.
       const current=mod(dayDiff(date,state.rules.thirdAnchor)-changesBefore('third',date),8)+1;
       numbers=[current];
-   }else if(group==='fixed'){
-     // 2번 글을 표시하는 기준일부터 16일 순환
-     const step = mod(dayDiff(date,state.rules.fixedAnchor),16);
    
-     // 2,3,4,1,5,6,7,1,8,9,10,1,11,12,13,1
-     numbers = [
-       step % 4 === 3
-         ? 1
-         : 2 + Math.floor(step / 4) * 3 + (step % 4)
-     ];
-   }
+}else if(group==='fixed'){
+
+  // 네 번째 글의 기준일은 2번 글이 나오는 날
+  const anchor = state.rules.fixedAnchor;
+  const forward = date >= anchor;
+
+  // 토요일을 제외한 진행 일수 계산
+  const start = forward ? anchor : date;
+  const end = forward ? date : anchor;
+
+  let days = 0;
+
+  for(
+    let d = addDays(start,1);
+    d <= end;
+    d = addDays(d,1)
+  ){
+    if(parseDate(d).getUTCDay() !== 6){
+      days++;
+    }
+  }
+
+  if(!forward) days = -days;
+
+  // 직접 하루 정지한 횟수 계산
+  const pauses = state.adjustments.fixedPauseDays || [];
+
+  const paused = pauses.filter(d =>
+    parseDate(d).getUTCDay() !== 6 &&
+    (forward
+      ? d >= anchor && d < date
+      : d >= date && d < anchor)
+  ).length;
+
+  const adjustedDays = days - (forward ? paused : -paused);
+
+  // 3개 글마다 1번 등장
+  const sequence = [
+    2,3,4,1,
+    5,6,7,1,
+    8,9,10,1,
+    11,12,13,1
+  ];
+
+  const step = mod(adjustedDays,sequence.length);
+
+  numbers = [sequence[step]];
+}
+
     const count=state.groups[group].articles.length;
     return numbers.filter(n=>Number.isInteger(n)&&n>=1&&n<=count).map(n=>({n,...state.groups[group].articles[n-1]}));
   }
@@ -376,7 +420,11 @@
     return selectedDate===koreanToday() && (!remote || !!session?.access_token);
   }
   function adjustmentButton(group,date){
-    if(!canAdjustToday() || !['eight','third'].includes(group))return '';
+    if(!canAdjustToday() ||
+   !['eight','third','fixed'].includes(group))return '';
+
+   if(group==='fixed' &&
+      parseDate(date).getUTCDay()===6)return '';
     const on=adjustedOn(group,date);
     const label=on?TEXT.undoButton:(group==='eight'?TEXT.extraButton:TEXT.pauseButton);
     const ico=on?'undo':(group==='eight'?'plus':'pause');
@@ -387,7 +435,7 @@
     const nav=`<div class="date-row"><div class="date-nav"><button type="button" data-action="day-prev" aria-label="전날">${svg('chevl','sm')}</button><strong>${e(fmtDate(date))}</strong><button type="button" data-action="day-next" aria-label="다음날">${svg('chevr','sm')}</button></div><button type="button" class="text-link" data-action="day-reset">오늘로 돌아가기</button></div>`;
     const cards=GROUP_ORDER.map(group=>{
       const arts=todayArticles(group,date);
-      const pill=group==='fixed'?'16일 순':group==='first'?'5일 단위':'매일 변경';
+      const pill=group==='fixed'?'16일 순환':group==='first'?'5일 단위':'매일 변경';
       return `<section class="article-card"><div class="card-head"><div><h2>${e(groupLabel(group))}</h2><div class="muted">${e(sectionNote(group,date))}</div></div><div class="card-tools"><span class="pill">${pill}</span>${adjustmentButton(group,date)}</div></div>${arts.map(a=>articleHTML(a,group)).join('')||'<div class="empty">이 날짜에 표시할 글이 없습니다.</div>'}</section>`;
     }).join('');
     return nav+`<div class="section-stack">${cards}</div><div class="copy-row" style="margin-top:18px"><button class="light-btn" data-action="copy-today">${svg('copy','sm')} 오늘의 글 전체 복사</button></div>`;
@@ -400,7 +448,7 @@
     const groups=GROUP_ORDER.filter(k=>allFilter==='all'||allFilter===k).map(k=>{
       const articles=state.groups[k].articles;
       const items=articles.map((a,i)=>`<div class="all-article"><div class="article-meta"><span class="article-number">${i+1}번</span>${k==='fixed'&&i===0?'<span class="anchor-badge">반복 등</span>':''}</div><div class="body-text">${e(a.body)}</div><div class="copy-row"><button class="copy-btn" data-action="copy-article" data-group="${k}" data-num="${i+1}">${svg('copy','xs')} 복사</button></div></div>`).join('');
-      const desc=k==='first'?'매월 1·6·11·16·21·26일 전환':k==='fixed'?'1 고정 · 2~13 순환':'8말씀이 매일 순환';
+      const desc=k==='first'?'매월 1·6·11·16·21·26일 전환':k==='fixed'?'토요일 제외 · 1번 반복 순환':'8말씀이 매일 순환';
       return `<section class="all-group"><div class="all-heading"><h2>${e(groupLabel(k))}</h2><span class="muted">${articles.length}말씀</span></div><div class="all-desc">${e(desc)}</div><div class="all-items">${items}</div></section>`;
     }).join('');
     return `<div class="all-top"><span class="muted">등록된 글 33개 · 원문 전체 보기</span><button class="light-btn" data-action="copy-all">${svg('copy','xs')} 전체 복사</button></div><div class="chip-row">${btns}</div>${groups}`;
@@ -442,7 +490,7 @@
       <section class="rule-card"><h3>${e(TEXT.firstLabel)} · 4말씀</h3><p>매월 1~5일, 6~10일, 11~15일, 16~20일, 21~25일, 26~말일. 31일은 마지막 글을 유지합니다.</p><div class="field"><label for="first-group-name">모음 이름</label>${input('first-group-name',groupLabel('first'))}</div><div class="field"><label for="first-mode">다음 달로 넘어갈 때</label><select id="first-mode" class="select"><option value="restart" ${r.firstMode==='restart'?'selected':''}>매달 1번 글부터 다시 시작</option><option value="continuous" ${r.firstMode==='continuous'?'selected':''}>다음 달에도 4개 글의 순서 이어가기</option></select></div><div class="field"><label for="first-anchor">이어가기 방식의 기준일</label>${input('first-anchor',r.firstAnchor,'date')}</div></section>
       <section class="rule-card"><h3>${e(TEXT.secondLabel)} · 8말씀</h3><p>하루에 하나씩 순환. +1 추가를 누른 날은 두 말씀을 보여주고 이후 순환이 한 칸 빨라집니다.</p><div class="field"><label for="eight-group-name">모음 이름</label>${input('eight-group-name',groupLabel('eight'))}</div><div class="field"><label for="eight-anchor">1번 글을 표시할 기준일</label>${input('eight-anchor',r.eightAnchor,'date')}</div></section>
       <section class="rule-card"><h3>${e(TEXT.thirdLabel)} · 8말씀</h3><p>하루에 하나씩 순환. 하루 정지를 누른 날은 오늘과 다음 날 똑같이 보여요.</p><div class="field"><label for="third-group-name">모음 이름</label>${input('third-group-name',groupLabel('third'))}</div><div class="field"><label for="third-anchor">1번 글을 표시할 기준일</label>${input('third-anchor',r.thirdAnchor,'date')}</div></section>
-      <section class="rule-card"><h3>${e(TEXT.fourthLabel)} · 13말씀</h3><p>1번 말씀은 항상 표시하고 2~13번 말씀은 하루에 하나씩 돌아갑니다.</p><div class="field"><label for="fixed-group-name">모음 이름</label>${input('fixed-group-name',groupLabel('fixed'))}</div><div class="field"><label for="fixed-anchor">2번 글을 표시할 기준일</label>${input('fixed-anchor',r.fixedAnchor,'date')}</div></section>
+      <section class="rule-card"><h3>${e(TEXT.fourthLabel)} · 13말씀</h3><p>토요일은 제외 1번 반복 순환</p><div class="field"><label for="fixed-group-name">모음 이름</label>${input('fixed-group-name',groupLabel('fixed'))}</div><div class="field"><label for="fixed-anchor">2번 글을 표시할 기준일</label>${input('fixed-anchor',r.fixedAnchor,'date')}</div></section>
       <div class="savebar"><button class="primary-btn" data-action="save-rules">${svg('check','sm')} 규칙 저장</button></div></div>`;
   }
   function loginPage(){
@@ -608,13 +656,19 @@
         if(busy)return;
         if(selectedDate!==koreanToday())return toast('조정 버튼은 오늘 날짜에만 사용할 수 있어요.');
         if(remote && !session?.access_token)return toast('관리자 로그인이 필요해요.');
-        if(!['eight','third'].includes(g))return;
+        if(!['eight','third','fixed'].includes(g))return;
+
+if(g==='fixed' &&
+   parseDate(koreanToday()).getUTCDay()===6)return;
         if(remote){
           try{const rows=await api('/rest/v1/app_state?select=content&id=eq.main');
             if(Array.isArray(rows) && rows[0]?.content)state=normalise(rows[0].content);
           }catch(_){return toast('최신 순환 상태를 읽지 못했어요. 다시 시도해 주세요.');}
         }
-        const field=g==='eight'?'extraDays':'pauseDays';
+        const field =
+  g==='eight' ? 'extraDays' :
+  g==='third' ? 'pauseDays' :
+  'fixedPauseDays';
         const date=koreanToday();
         const previous=[...state.adjustments[field]];
         state.adjustments[field]=previous.includes(date)
