@@ -45,9 +45,27 @@
   // =============================================================
   // [2. 앱 기본 설정] 이하 일반적으로 수정할 필요 없음
   // =============================================================
+  const APP_VERSION = '2026.10.22-번호별보기';
   const ROOT = document.getElementById('app');
   const KEY = 'my-simple-hub-v1'; // 기존 로컬 데이터와 호환
   const SESSION_KEY = 'my-simple-hub-session';
+  // 브라우저별 개인 번호. 서버 데이터나 IP 주소와 연결하지 않습니다.
+  const MY_NUMBER_KEY = 'moaadum-personal-number-v1';
+  // 90~91 / 92~95 / 96~99 / 00~03 / 04~07 / 08~11 / 12
+  // 마지막 12번은 현재 번호 범위에서 단독 그룹으로 취급합니다.
+  const NUMBER_GROUPS = [[90,91],[92,93,94,95],[96,97,98,99],[0,1,2,3],[4,5,6,7],[8,9,10,11],[12]];
+  const NUMBER_OPTIONS = [...Array.from({length:10},(_,i)=>i+90),...Array.from({length:13},(_,i)=>i)];
+  const formatMyNumber = (n) => String(n).padStart(2,'0');
+  function loadMyNumber(){
+    try{
+      const raw=localStorage.getItem(MY_NUMBER_KEY);
+      if(raw === null || raw === '')return null;
+      const value=Number(raw);
+      return NUMBER_OPTIONS.includes(value)?value:null;
+    }catch(_){return null;}
+  }
+  let myNumber=loadMyNumber();
+  const browseOffsets={eight:0,third:0};
   const GROUP_ORDER = ['first','eight','third','fixed'];
   const cfg = window.HUB_CONFIG || {};
   const remote = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
@@ -384,6 +402,42 @@
     const count=state.groups[group].articles.length;
     return numbers.filter(n=>Number.isInteger(n)&&n>=1&&n<=count).map(n=>({n,...state.groups[group].articles[n-1]}));
   }
+  // [5-A. 번호별 오늘의 글] 같은 번호대는 같은 글을 봅니다.
+  // 모든 번호대에 +1/정지 기록이 공통 적용되고, 2·3번째 모음은 독립적으로 계산됩니다.
+  function myGroupOffset(){
+    if(myNumber===null)return 0; // 선택 전에는 기존 기준 그룹의 글을 표시
+    const found=NUMBER_GROUPS.findIndex(group=>group.includes(myNumber));
+    return found<0?0:found;
+  }
+  function personalisedArticles(group,date,{preview=true}={}){
+    const originals=todayArticles(group,date);
+    if(group!=='eight' && group!=='third')return originals;
+    const groupOffset=myGroupOffset();
+    const manual=preview?(browseOffsets[group]||0):0;
+    const firstBase=originals[0]?.n;
+    if(!firstBase)return [];
+    const nums=manual===0
+      ? originals.map(a=>mod((a.n-1)+groupOffset,8)+1)
+      : [mod((firstBase-1)+groupOffset+manual,8)+1];
+    return nums.map(n=>({n,...state.groups[group].articles[n-1]}));
+  }
+  function numberPicker(){
+    const options=NUMBER_OPTIONS.map(n=>`<option value="${formatMyNumber(n)}" ${myNumber===n?'selected':''}>${formatMyNumber(n)}번</option>`).join('');
+    return `<div class="my-number-picker"><label for="my-number-select">내 번호</label><select id="my-number-select" class="my-number-select" aria-label="내 번호 선택"><option value="" ${myNumber===null?'selected':''}>선택</option>${options}</select></div>`;
+  }
+  function browseArticleButtons(group,items){
+    if(group!=='eight'&&group!=='third')return '';
+    const shifted=(browseOffsets[group]||0)!==0;
+    const display=items.length>1?items.map(a=>a.n+'번').join(' + '):(items[0]?.n||'-')+'번';
+    return `<div class="article-nav" aria-label="${e(groupLabel(group))} 글 넘겨보기">
+      <div class="article-nav-core">
+        <button type="button" data-action="browse-article" data-group="${group}" data-delta="-1" aria-label="이전 글">${svg('chevl','sm')}</button>
+        <span>${e(display)} <small>${shifted?'미리보기':'오늘'}</small></span>
+        <button type="button" data-action="browse-article" data-group="${group}" data-delta="1" aria-label="다음 글">${svg('chevr','sm')}</button>
+      </div>
+      ${shifted?`<button type="button" class="text-link" data-action="browse-reset" data-group="${group}">오늘의 글로</button>`:''}
+    </div>`;
+  }
   function rangeLabel(date){const d=parseDate(date),start=Math.min(5,Math.floor((d.getUTCDate()-1)/5))*5+1;const end=start===26?monthDays(d.getUTCFullYear(),d.getUTCMonth()+1):start+4;return `${d.getUTCMonth()+1}월 ${start}~${end}일`}
   function sectionNote(group,date){
     if(group==='first')return `${rangeLabel(date)} · 5일 단위`;
@@ -434,9 +488,9 @@
     const date=selectedDate;
     const nav=`<div class="date-row"><div class="date-nav"><button type="button" data-action="day-prev" aria-label="전날">${svg('chevl','sm')}</button><strong>${e(fmtDate(date))}</strong><button type="button" data-action="day-next" aria-label="다음날">${svg('chevr','sm')}</button></div><button type="button" class="text-link" data-action="day-reset">오늘로 돌아가기</button></div>`;
     const cards=GROUP_ORDER.map(group=>{
-      const arts=todayArticles(group,date);
+      const arts=personalisedArticles(group,date);
       const pill=group==='fixed'?'16일 순환':group==='first'?'5일 단위':'매일 변경';
-      return `<section class="article-card"><div class="card-head"><div><h2>${e(groupLabel(group))}</h2><div class="muted">${e(sectionNote(group,date))}</div></div><div class="card-tools"><span class="pill">${pill}</span>${adjustmentButton(group,date)}</div></div>${arts.map(a=>articleHTML(a,group)).join('')||'<div class="empty">이 날짜에 표시할 글이 없습니다.</div>'}</section>`;
+      return `<section class="article-card"><div class="card-head"><div><h2>${e(groupLabel(group))}</h2><div class="muted">${e(sectionNote(group,date))}</div></div><div class="card-tools"><span class="pill">${pill}</span>${adjustmentButton(group,date)}</div></div>${browseArticleButtons(group,arts)}${arts.map(a=>articleHTML(a,group)).join('')||'<div class="empty">이 날짜에 표시할 글이 없습니다.</div>'}</section>`;
     }).join('');
     return nav+`<div class="section-stack">${cards}</div><div class="copy-row" style="margin-top:18px"><button class="light-btn" data-action="copy-today">${svg('copy','sm')} 오늘의 글 전체 복사</button></div>`;
   }
@@ -454,7 +508,7 @@
     return `<div class="all-top"><span class="muted">등록된 글 33개 · 원문 전체 보기</span><button class="light-btn" data-action="copy-all">${svg('copy','xs')} 전체 복사</button></div><div class="chip-row">${btns}</div>${groups}`;
   }
   function readPage(){
-    return shell(`<button class="back" type="button" data-action="home">${svg('left','sm')} 처음으로</button><div class="read-container"><section class="read-hero"><div class="eyebrow">${e(TEXT.libraryEyebrow)}</div><h1>${e(TEXT.libraryTitle)}</h1><p class="subtitle">${e(TEXT.librarySubtitle)}</p></section><div class="seg" role="tablist"><button type="button" role="tab" aria-selected="${activeReadTab==='today'}" class="${activeReadTab==='today'?'active':''}" data-action="read-tab" data-value="today">${e(TEXT.todayTab)}</button><button type="button" role="tab" aria-selected="${activeReadTab==='all'}" class="${activeReadTab==='all'?'active':''}" data-action="read-tab" data-value="all">${e(TEXT.allTab)}</button></div>${activeReadTab==='today'?todayView():allView()}</div>`);
+    return shell(`<button class="back" type="button" data-action="home">${svg('left','sm')} 처음으로</button><div class="read-container"><section class="read-hero"><div class="eyebrow">${e(TEXT.libraryEyebrow)}</div><div class="read-heading"><h1>${e(TEXT.libraryTitle)}</h1>${numberPicker()}</div><p class="subtitle">${e(TEXT.librarySubtitle)}</p></section><div class="seg" role="tablist"><button type="button" role="tab" aria-selected="${activeReadTab==='today'}" class="${activeReadTab==='today'?'active':''}" data-action="read-tab" data-value="today">${e(TEXT.todayTab)}</button><button type="button" role="tab" aria-selected="${activeReadTab==='all'}" class="${activeReadTab==='all'?'active':''}" data-action="read-tab" data-value="all">${e(TEXT.allTab)}</button></div>${activeReadTab==='today'?todayView():allView()}</div>`);
   }
   // 6-C. 관리자 화면 (링크 · 글 · 규칙)
   function adminNav(){
@@ -499,7 +553,7 @@
   function adminPage(){
     if(remote && !session?.access_token)return loginPage();
     const content={links:linkAdmin,articles:articleAdmin,rules:ruleAdmin}[adminTab]();
-    return shell(`<button class="back" data-action="home">${svg('left','sm')} 처음으로</button><div class="admin-header"><h1>관리자 모드</h1><p class="hint">필요한 내용만 바꾸고 저장하면 됩니다.</p></div>${!remote?`<div class="notice"><strong>이 브라우저에서만 저장되는 시험용 모드</strong><br>${storageAvailable?'현재 편집 기능은 별도 로그인 없이 작동합니다. 공개 운영 전에 Supabase를 연결하면 로그인 관리자만 수정하고, 방문자는 읽기만 할 수 있습니다.':'지금은 브라우저가 저장을 차단했습니다. 파일을 로컬 웹서버로 실행하거나 Supabase를 연결해 주세요.'}</div>`:''}${adminNav()}${content}<div class="bottom-gap"></div>`);
+    return shell(`<button class="back" data-action="home">${svg('left','sm')} 처음으로</button><div class="admin-header"><h1>관리자 모드</h1><p class="hint">필요한 내용만 바꾸고 저장하면 됩니다.</p></div>${!remote?`<div class="notice"><strong>이 브라우저에서만 저장되는 시험용 모드</strong><br>${storageAvailable?'현재 편집 기능은 별도 로그인 없이 작동합니다. 공개 운영 전에 Supabase를 연결하면 로그인 관리자만 수정하고, 방문자는 읽기만 할 수 있습니다.':'지금은 브라우저가 저장을 차단했습니다. 파일을 로컬 웹서버로 실행하거나 Supabase를 연결해 주세요.'}</div>`:''}${adminNav()}${content}<div class="build-version">버전 ${e(APP_VERSION)}</div><div class="bottom-gap"></div>`);
   }
   function route(){const path=location.hash.replace(/^#\/?/,'').split('?')[0];return path==='read'?'read':path==='admin'?'admin':'home';}
   // 서버 응답을 기다리는 동안 임시/예시 타일을 먼저 렌더링하지 않습니다.
@@ -619,12 +673,23 @@
       if(a==='home')return nav('');if(a==='read')return nav('read');if(a==='admin')return nav('admin');
       if(a==='missing-link')return toast('아직 주소가 등록되지 않았어요. 관리자에서 링크를 입력해 주세요.');
       if(a==='read-tab'){activeReadTab=v;render();return;}
-      if(a==='day-prev'){selectedDate=addDays(selectedDate,-1);render();return;}
-      if(a==='day-next'){selectedDate=addDays(selectedDate,1);render();return;}
-      if(a==='day-reset'){selectedDate=koreanToday();render();return;}
+      if(a==='day-prev'){selectedDate=addDays(selectedDate,-1);browseOffsets.eight=0;browseOffsets.third=0;render();return;}
+      if(a==='day-next'){selectedDate=addDays(selectedDate,1);browseOffsets.eight=0;browseOffsets.third=0;render();return;}
+      if(a==='day-reset'){selectedDate=koreanToday();browseOffsets.eight=0;browseOffsets.third=0;render();return;}
+      if(a==='browse-article'){
+        if(!['eight','third'].includes(g))return;
+        const delta=Number(el.dataset.delta);
+        if(![-1,1].includes(delta))return;
+        browseOffsets[g]=mod(browseOffsets[g]+delta,8);
+        render();return;
+      }
+      if(a==='browse-reset'){
+        if(!['eight','third'].includes(g))return;
+        browseOffsets[g]=0;render();return;
+      }
       if(a==='filter'){allFilter=v;render();return;}
       if(a==='copy-article')return copyText(getCopyArticle(g,n));
-      if(a==='copy-today')return copyText(GROUP_ORDER.map(k=>`${groupLabel(k)}\n\n${todayArticles(k,selectedDate).map(x=>x.body).join('\n\n')}`).join('\n\n──────────────\n\n'));
+      if(a==='copy-today')return copyText(GROUP_ORDER.map(k=>`${groupLabel(k)}\n\n${personalisedArticles(k,selectedDate,{preview:false}).map(x=>x.body).join('\n\n')}`).join('\n\n──────────────\n\n'));
       if(a==='copy-all')return copyText(getAllText(GROUP_ORDER.filter(k=>allFilter==='all'||allFilter===k)));
       if(a==='admin-tab'){captureAdmin();adminTab=v;render();return;}
       if(a==='icon-open'){captureLinks();iconEditing=iconEditing===idx?-1:idx;render();return;}
@@ -684,6 +749,21 @@ if(g==='fixed' &&
   }
   ROOT.addEventListener('click',ev=>{const el=ev.target.closest('[data-action]');if(el){ev.preventDefault();void handleAction(el);}});
   ROOT.addEventListener('change',async ev=>{
+    if(ev.target.id==='my-number-select'){
+      const raw=ev.target.value;
+      const num=raw===''?null:Number(raw);
+      if(num!==null && !NUMBER_OPTIONS.includes(num))return;
+      myNumber=num;
+      browseOffsets.eight=0;
+      browseOffsets.third=0;
+      try{
+        if(myNumber===null)localStorage.removeItem(MY_NUMBER_KEY);
+        else localStorage.setItem(MY_NUMBER_KEY,formatMyNumber(myNumber));
+      }catch(_){toast('이 브라우저에서 번호를 저장할 수 없어요.');}
+      render();
+      toast(myNumber===null?'번호 선택을 해제했어요.':`${formatMyNumber(myNumber)}번으로 표시해요.`);
+      return;
+    }
     if(ev.target.id!=='tile-icon-file')return;
     const file=ev.target.files?.[0];if(!file||iconEditing===-1)return;
     const targetIndex=iconEditing;
@@ -714,5 +794,5 @@ if(g==='fixed' &&
   }
   boot();
   // 개발 확인용: 날짜별로 표시할 글 번호 확인
-  window.HubDebug={getState:()=>structuredClone(state),showFor:(date)=>Object.fromEntries(GROUP_ORDER.map(k=>[k,todayArticles(k,date).map(a=>a.n)])),getRemoteStatus:()=>remoteStatus};
+  window.HubDebug={getState:()=>structuredClone(state),showFor:(date)=>Object.fromEntries(GROUP_ORDER.map(k=>[k,personalisedArticles(k,date,{preview:false}).map(a=>a.n)])),getRemoteStatus:()=>remoteStatus};
 })();

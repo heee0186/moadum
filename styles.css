@@ -71,3 +71,19 @@ button{border:0;background:none;color:inherit}.app{max-width:920px;margin:0 auto
 .article-meta{display:flex;align-items:center;gap:7px;margin-bottom:10px}
 .article-number{font-size:12px;font-weight:650;line-height:1.4;color:#8b948d}
 .article-meta .anchor-badge{margin-left:0}
+
+/* 번호별 글 보기: 기존 모아둠 카드 디자인을 유지한 최소한의 추가 UI */
+.read-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.read-heading h1{margin:8px 0}
+.my-number-picker{display:inline-flex;align-items:center;gap:8px;margin:5px 0;color:#6f7c71;font-size:12px;white-space:nowrap}
+.my-number-picker label{font-weight:650}
+.my-number-select{width:82px;border:1px solid #dce5dd;background:#fff;color:#3a5140;border-radius:9px;padding:7px 8px;font-size:13px;font-weight:650;cursor:pointer}
+.article-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 15px;min-height:29px}
+.article-nav-core{display:inline-flex;align-items:center;gap:8px}
+.article-nav-core button{display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;border-radius:8px;border:1px solid #e2e8e2;color:#68806b;background:#fbfcfb}
+.article-nav-core button:hover{background:#ecf3ed}
+.article-nav-core span{font-size:12px;color:#526658;font-weight:700;min-width:58px;text-align:center}
+.article-nav-core small{font-size:10px;color:#95a197;font-weight:500;margin-left:3px}
+@media(max-width:620px){.read-heading{gap:6px}.my-number-picker{margin:0}.article-nav{margin-top:1px}}
+
+.build-version{margin:36px 0 0;color:#a3aaa3;font-size:11px;text-align:right}
