@@ -324,10 +324,19 @@
     const anchorSlot=Math.min(5,Math.floor((ref.getUTCDate()-1)/5));
     return mod(months*6+slot-anchorSlot,4)+1;
   }
-  function changesBefore(kind,date){
-    const entries=kind==='eight'?state.adjustments.extraDays:state.adjustments.pauseDays;
-    return entries.filter(d=>d<date).length;
-  }
+  
+function changesBefore(kind,date){
+  const entries=kind==='eight'
+    ? state.adjustments.extraDays
+    : state.adjustments.pauseDays;
+
+  const anchor=kind==='eight'
+    ? state.rules.eightAnchor
+    : state.rules.thirdAnchor;
+
+  return entries.filter(d=>d>=anchor && d<date).length;
+}
+
   function adjustedOn(kind,date){
   const field =
     kind === 'eight' ? 'extraDays' :
