@@ -486,7 +486,7 @@ return selectedDate===koreanToday();
   }
   function adjustmentButton(group,date){
     if(!canAdjustToday() ||
-   !['eight','third','fixed'].includes(group))return '';
+   !['eight','third','fixed'].includes(group)
 
    if(group==='fixed' &&
       parseDate(date).getUTCDay()===6)return '';
