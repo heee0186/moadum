@@ -480,7 +480,9 @@ function changesBefore(kind,date){
   // 글자만 바꿀 때는 여기보다 맨 위 [1. 화면 문구]를 수정하세요.
   // =============================================================
   function canAdjustToday(){
-    return selectedDate===koreanToday() && (!remote || !!session?.access_token);
+    
+return selectedDate===koreanToday();
+
   }
   function adjustmentButton(group,date){
     if(!canAdjustToday() ||
