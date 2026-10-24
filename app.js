@@ -464,49 +464,9 @@ function changesBefore(kind,date){
   function home(){
     const tiles=state.links.map((l,i)=>{
       const tileInner=`<span class="tile-head">${tileIcon(l,'lg')}${svg('up','sm')}</span><span class="tile-title">${e(l.name)}</span>`;
-      
-const cleanUrl=validUrl(l.url);
-
-if(!cleanUrl){
-  return `<button class="tile" type="button" data-action="missing-link" data-idx="${i}" aria-label="${e(l.name)} 연결 주소 등록 안내">${tileInner}</button>`;
-}
-
-const sheet = new URL(cleanUrl);
-const isSheet = sheet.hostname === 'docs.google.com'
-  && /^\/spreadsheets\/d\/[^/]+(?:\/(?:edit|view|preview)\/?)?$/.test(sheet.pathname);
-
-if(isSheet){
-  // 원본 주소와 미리보기 주소 자동 구분
-  sheet.pathname = sheet.pathname
-    .replace(/\/(?:edit|view|preview)\/?$/, '')
-    .replace(/\/$/, '') + '/edit';
-
-  const originalUrl = sheet.href;
-
-  sheet.pathname = sheet.pathname.replace(/\/edit$/, '/preview');
-  const previewUrl = sheet.href;
-
-  // 모바일 화면
-  if(window.matchMedia('(max-width: 620px)').matches){
-    return `<div class="tile" style="padding:0;overflow:hidden">
-      <a href="${e(previewUrl)}" target="_blank" rel="noopener noreferrer"
-         style="display:flex;flex-direction:column;justify-content:space-between;min-height:76px;padding:15px;text-decoration:none">
-        ${tileInner}
-      </a>
-      <a href="${e(originalUrl)}" target="_blank" rel="noopener noreferrer"
-         style="border-top:1px solid #dbe2dc;padding:10px 15px;font-size:12px;text-align:right;text-decoration:none">
-        원본 시트 열기 ↗
-      </a>
-    </div>`;
-  }
-
-  // PC에서는 원본으로 바로 이동
-  return `<a class="tile" href="${e(originalUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${e(l.name)} 새 창으로 열기">${tileInner}</a>`;
-}
-
-// 다른 링크는 기존 방식 그대로
-return `<a class="tile" href="${e(cleanUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${e(l.name)} 새 창으로 열기">${tileInner}</a>`;
-
+      const cleanUrl=validUrl(l.url);
+      return cleanUrl?`<a class="tile" href="${e(cleanUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${e(l.name)} 새 창으로 열기">${tileInner}</a>`:`<button class="tile" type="button" data-action="missing-link" data-idx="${i}" aria-label="${e(l.name)} 연결 주소 등록 안내">${tileInner}</button>`;
+    }).join('');
     return shell(`<section class="hero"><div class="eyebrow">${e(TEXT.mainEyebrow)}</div><h1>${e(TEXT.mainTitle)}</h1><p class="subtitle">${e(TEXT.mainSubtitle)}</p></section><div class="tiles">${tiles}<button class="tile tile-feature" type="button" data-action="read"><span class="tile-head">${tileIcon({icon:state.featureIcon,image:state.featureImage},'lg')}${svg('right','sm')}</span><span class="tile-title">${e(TEXT.libraryTile)}</span></button></div><div class="footer">${e(TEXT.mainFooter)}</div>`);
   }
   // 6-B. 글 본문 / 카드 / 전체 목록 (글별 제목 없이 본문만 사용)
