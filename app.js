@@ -325,26 +325,17 @@
     return mod(months*6+slot-anchorSlot,4)+1;
   }
   
-function changesBefore(kind,date){
-  const entries=kind==='eight'
-    ? state.adjustments.extraDays
-    : state.adjustments.pauseDays;
 
-  const anchor=kind==='eight'
-    ? state.rules.eightAnchor
-    : state.rules.thirdAnchor;
-
-  return entries.filter(d=>d>=anchor && d<date).length;
-}
-
+  // 기준일 이후 오늘 전까지 +1(eight) / 하루 정지(third)를 누른 횟수
+  function changesBefore(kind,date){
+    const entries=kind==='eight'?state.adjustments.extraDays:state.adjustments.pauseDays;
+    const anchor=kind==='eight'?state.rules.eightAnchor:state.rules.thirdAnchor;
+    return entries.filter(d=>d>=anchor && d<date).length;
+  }
   function adjustedOn(kind,date){
-  const field =
-    kind === 'eight' ? 'extraDays' :
-    kind === 'third' ? 'pauseDays' :
-    'fixedPauseDays';
-
-  return (state.adjustments[field] || []).includes(date);
-}
+    const field=kind==='eight'?'extraDays':kind==='third'?'pauseDays':'fixedPauseDays';
+    return (state.adjustments[field]||[]).includes(date);
+  }
   function todayArticles(group,date){
     let numbers=[];
     if(group==='first')numbers=[baseNumberFirst(date)];
@@ -358,55 +349,24 @@ function changesBefore(kind,date){
       // 다음 날부터 누적 진행 횟수를 1회 차감합니다.
       const current=mod(dayDiff(date,state.rules.thirdAnchor)-changesBefore('third',date),8)+1;
       numbers=[current];
-   
-}else if(group==='fixed'){
-
-  // 네 번째 글의 기준일은 2번 글이 나오는 날
-  const anchor = state.rules.fixedAnchor;
-  const forward = date >= anchor;
-
-  // 토요일을 제외한 진행 일수 계산
-  const start = forward ? anchor : date;
-  const end = forward ? date : anchor;
-
-  let days = 0;
-
-  for(
-    let d = addDays(start,1);
-    d <= end;
-    d = addDays(d,1)
-  ){
-    if(parseDate(d).getUTCDay() !== 6){
-      days++;
+    }else if(group==='fixed'){
+      // 네 번째 모음: 기준일(fixedAnchor)에 2번 글. 토요일은 진행하지 않고,
+      // 직접 하루 정지한 날도 진행 횟수에서 뺍니다. 3개 글마다 1번 글이 끼어듭니다.
+      const anchor=state.rules.fixedAnchor;
+      const forward=date>=anchor;
+      const start=forward?anchor:date;
+      const end=forward?date:anchor;
+      let days=0;
+      for(let d=addDays(start,1);d<=end;d=addDays(d,1)){
+        if(parseDate(d).getUTCDay()!==6)days++;
+      }
+      if(!forward)days=-days;
+      const pauses=state.adjustments.fixedPauseDays||[];
+      const paused=pauses.filter(d=>parseDate(d).getUTCDay()!==6 && (forward?(d>=anchor && d<date):(d>=date && d<anchor))).length;
+      const adjustedDays=days-(forward?paused:-paused);
+      const sequence=[2,3,4,1, 5,6,7,1, 8,9,10,1, 11,12,13,1];
+      numbers=[sequence[mod(adjustedDays,sequence.length)]];
     }
-  }
-
-  if(!forward) days = -days;
-
-  // 직접 하루 정지한 횟수 계산
-  const pauses = state.adjustments.fixedPauseDays || [];
-
-  const paused = pauses.filter(d =>
-    parseDate(d).getUTCDay() !== 6 &&
-    (forward
-      ? d >= anchor && d < date
-      : d >= date && d < anchor)
-  ).length;
-
-  const adjustedDays = days - (forward ? paused : -paused);
-
-  // 3개 글마다 1번 등장
-  const sequence = [
-    2,3,4,1,
-    5,6,7,1,
-    8,9,10,1,
-    11,12,13,1
-  ];
-
-  const step = mod(adjustedDays,sequence.length);
-
-  numbers = [sequence[step]];
-}
 
     const count=state.groups[group].articles.length;
     return numbers.filter(n=>Number.isInteger(n)&&n>=1&&n<=count).map(n=>({n,...state.groups[group].articles[n-1]}));
@@ -480,16 +440,11 @@ function changesBefore(kind,date){
   // 글자만 바꿀 때는 여기보다 맨 위 [1. 화면 문구]를 수정하세요.
   // =============================================================
   function canAdjustToday(){
-    
-return selectedDate===koreanToday();
-
+    return selectedDate===koreanToday();
   }
   function adjustmentButton(group,date){
-    if(!canAdjustToday() ||
-   !['eight','third','fixed'].includes(group))return '';
-
-   if(group==='fixed' &&
-      parseDate(date).getUTCDay()===6)return '';
+    if(!canAdjustToday() || !['eight','third','fixed'].includes(group))return '';
+    if(group==='fixed' && parseDate(date).getUTCDay()===6)return '';
     const on=adjustedOn(group,date);
     const label=on?TEXT.undoButton:(group==='eight'?TEXT.extraButton:TEXT.pauseButton);
     const ico=on?'undo':(group==='eight'?'plus':'pause');
@@ -564,7 +519,7 @@ return selectedDate===koreanToday();
   function adminPage(){
     if(remote && !session?.access_token)return loginPage();
     const content={links:linkAdmin,articles:articleAdmin,rules:ruleAdmin}[adminTab]();
-    return shell(`<button class="back" data-action="home">${svg('left','sm')} 처음으로</button><div class="admin-header"><h1>관리자 모드</h1><p class="hint">필요한 내용만 바꾸고 저장하면 됩니다.</p></div>${!remote?`<div class="notice"><strong>이 브라우저에서만 저장되는 시험용 모드</strong><br>${storageAvailable?'현재 편집 기능은 별도 로그인 없이 작동합니다. 공개 운영 전에 Supabase를 연결하면 로그인 관리자만 수정하고, 방문자는 읽기만 할 수 있습니다.':'지금은 브라우저가 저장을 차단했습니다. 파일을 로컬 웹서버로 실행하거나 Supabase를 연결해 주세요.'}</div>`:''}${adminNav()}${content}<div class="build-version">버전 ${e(APP_VERSION)}</div><div class="bottom-gap"></div>`);
+    return shell(`<button class="back" data-action="home">${svg('left','sm')} 처음으로</button><div class="admin-header"><h1>관리자 모드</h1><p class="hint">필요한 내용만 바꾸고 저장하면 됩니다.</p>${remote?`<button type="button" class="secondary-btn" data-action="logout">${svg('logout','xs')} 로그아웃</button>`:''}</div>${!remote?`<div class="notice"><strong>이 브라우저에서만 저장되는 시험용 모드</strong><br>${storageAvailable?'현재 편집 기능은 별도 로그인 없이 작동합니다. 공개 운영 전에 Supabase를 연결하면 로그인 관리자만 수정하고, 방문자는 읽기만 할 수 있습니다.':'지금은 브라우저가 저장을 차단했습니다. 파일을 로컬 웹서버로 실행하거나 Supabase를 연결해 주세요.'}</div>`:''}${adminNav()}${content}<div class="build-version">버전 ${e(APP_VERSION)}</div><div class="bottom-gap"></div>`);
   }
   function route(){const path=location.hash.replace(/^#\/?/,'').split('?')[0];return path==='read'?'read':path==='admin'?'admin':'home';}
   // 서버 응답을 기다리는 동안 임시/예시 타일을 먼저 렌더링하지 않습니다.
@@ -733,18 +688,13 @@ return selectedDate===koreanToday();
         if(selectedDate!==koreanToday())return toast('조정 버튼은 오늘 날짜에만 사용할 수 있어요.');
         if(remote && !session?.access_token)return toast('관리자 로그인이 필요해요.');
         if(!['eight','third','fixed'].includes(g))return;
-
-if(g==='fixed' &&
-   parseDate(koreanToday()).getUTCDay()===6)return;
+        if(g==='fixed' && parseDate(koreanToday()).getUTCDay()===6)return;
         if(remote){
           try{const rows=await api('/rest/v1/app_state?select=content&id=eq.main');
             if(Array.isArray(rows) && rows[0]?.content)state=normalise(rows[0].content);
           }catch(_){return toast('최신 순환 상태를 읽지 못했어요. 다시 시도해 주세요.');}
         }
-        const field =
-  g==='eight' ? 'extraDays' :
-  g==='third' ? 'pauseDays' :
-  'fixedPauseDays';
+        const field=g==='eight'?'extraDays':g==='third'?'pauseDays':'fixedPauseDays';
         const date=koreanToday();
         const previous=[...state.adjustments[field]];
         state.adjustments[field]=previous.includes(date)
